@@ -1,0 +1,50 @@
+@baseUrl = http://localhost:18080
+@roomId = 00000000-0000-0000-0000-000000000000
+@serviceId = 00000000-0000-0000-0000-000000000000
+
+GET {{baseUrl}}/health/ready
+Accept: application/json
+
+###
+
+GET {{baseUrl}}/api/v1/rooms?page=1&pageSize=20
+Accept: application/json
+
+###
+
+POST {{baseUrl}}/api/v1/rooms
+Content-Type: application/json
+
+{
+  "name": "Room D",
+  "capacity": 80,
+  "baseHourlyRate": 2800,
+  "services": [
+    { "name": "Projector", "price": 500 },
+    { "name": "Wi-Fi", "price": 300 }
+  ]
+}
+
+###
+
+GET {{baseUrl}}/api/v1/rooms/available?date=2030-09-01&start=10:00&end=14:00&minimumCapacity=50
+Accept: application/json
+
+###
+
+POST {{baseUrl}}/api/v1/bookings
+Content-Type: application/json
+
+{
+  "roomId": "{{roomId}}",
+  "date": "2030-09-01",
+  "start": "10:00:00",
+  "durationMinutes": 240,
+  "attendeeCount": 50,
+  "selectedServiceIds": ["{{serviceId}}"]
+}
+
+###
+
+GET {{baseUrl}}/api/v1/reports/revenue?from=2030-09-01&to=2030-09-30
+Accept: application/json

@@ -1,0 +1,198 @@
+{
+  "info": {
+    "_postman_id": "f88b8f13-4ed2-42f9-b29b-f8b93f34a6c0",
+    "name": "Conference Room Rental API",
+    "description": "End-to-end collection for rooms, availability, bookings, reports and health checks.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (!pm.collectionVariables.get('bookingDate')) {",
+          "  const date = new Date();",
+          "  date.setUTCDate(date.getUTCDate() + 30);",
+          "  pm.collectionVariables.set('bookingDate', date.toISOString().slice(0, 10));",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:18080" },
+    { "key": "bookingDate", "value": "" },
+    { "key": "roomId", "value": "" },
+    { "key": "serviceId", "value": "" },
+    { "key": "bookingId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Readiness",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health/ready"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('API and PostgreSQL are ready', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rooms",
+      "item": [
+        {
+          "name": "List seeded rooms and capture IDs",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/rooms?page=1&pageSize=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Rooms returned', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.items.length).to.be.above(0);",
+                  "pm.collectionVariables.set('roomId', body.items[0].id);",
+                  "pm.collectionVariables.set('serviceId', body.items[0].services[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create room",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman {{$guid}}\",\n  \"capacity\": 80,\n  \"baseHourlyRate\": 2800,\n  \"services\": [\n    { \"name\": \"Projector\", \"price\": 500 },\n    { \"name\": \"Wi-Fi\", \"price\": 300 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/rooms"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Room created', () => pm.response.to.have.status(201));"]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search available rooms",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/rooms/available?date={{bookingDate}}&start=12:00&end=14:00&minimumCapacity=30"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Availability returned', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        {
+          "name": "Create booking and capture ID",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roomId\": \"{{roomId}}\",\n  \"date\": \"{{bookingDate}}\",\n  \"start\": \"12:00:00\",\n  \"durationMinutes\": 120,\n  \"attendeeCount\": 20,\n  \"selectedServiceIds\": [\"{{serviceId}}\"]\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/bookings"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Booking created', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.totalPrice).to.be.above(0);",
+                  "pm.collectionVariables.set('bookingId', body.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get booking",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/bookings/{{bookingId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Booking returned', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Revenue report",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/reports/revenue?from={{bookingDate}}&to={{bookingDate}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Revenue report returned', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Utilization report",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/reports/utilization?from={{bookingDate}}&to={{bookingDate}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": ["pm.test('Utilization report returned', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
